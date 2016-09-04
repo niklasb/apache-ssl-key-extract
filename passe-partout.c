@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -96,12 +97,15 @@ static void *extract_from_mem(void *addr, unsigned int size, proc_t *proc) {
 	if (!map || !map->data)
 		return NULL;
 
+        if (off + size > map->size)
+                return NULL;
 	return map->data + off;
 }
 
 static int is_valid_BN(BIGNUM *bn) {
     
-    printf("BN { d=%p, top=%i, dmax=%i, neg=%i, flags=%i }\n",
+	  if (verbose > 0)
+        printf("BN { d=%p, top=%i, dmax=%i, neg=%i, flags=%i }\n",
 		bn->d, bn->top, bn->dmax, bn->neg, bn->flags);
 	  if ( bn->dmax < 0 || bn->top < 0 || bn->dmax < bn->top )
 				return -1;
@@ -486,7 +490,49 @@ static void usage(char *n)
 	exit(EXIT_FAILURE);
 }
 
+void load_map_from_file(mapping_t* map, const char *path) {
+	FILE* f = fopen(path, "r");
+	assert(f);
+	fseek(f, 0, SEEK_END);
+	map->size = ftell(f);
+	fseek(f, 0, SEEK_SET);
+	map->data = malloc(map->size);
+	assert(map->data);
+	assert(fread(map->data, 1, map->size, f) == map->size);
+}
+
 int main(int argc, char **argv) {
+	// Create some mappings from files 
+	mapping_t map1={0},map2={0},map3={0};
+	proc_t p;
+	p.pid = 0;
+	p.maps = &map3;
+
+	map1.address = 0x57779000;
+	load_map_from_file(&map1, "1");
+	assert(map1.size == 126976);
+	map1.next = 0;
+	map1.proc = &p;
+
+	map2.address = 0x57671000;
+	load_map_from_file(&map2, "2");
+	assert(map2.size == 0x57779000-map2.address);
+	map2.next = &map1;
+	map2.proc = &p;
+
+	map3.address = 0x57634000;
+	load_map_from_file(&map3, "3");
+	assert(map3.size == 0x57671000-map3.address);
+	map3.proc = &p;
+	map3.next = &map2;
+	verbose = 0;
+
+	find_keys(&map1, 0, map1.size);
+	find_keys(&map2, 0, map2.size);
+	find_keys(&map3, 0, map3.size);
+
+	return 0;
+	/*
 	pid_t pid;
 	proc_t p;
 	int i;
@@ -586,4 +632,5 @@ int main(int argc, char **argv) {
 	dbg_exit(&p);
 
 	return EXIT_SUCCESS;
+	*/
 }

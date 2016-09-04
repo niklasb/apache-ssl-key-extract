@@ -341,15 +341,18 @@ mapping_t *dbg_map_lookup_by_address(
 
 	/* FIXME too slow ... */
 	for (map=p->maps; map; map=map->next) {
-		if (map->address > addr)
-			break;
+//printf("%x %x %x\n", map->address, addr, map->address + map->size);
+		//if (map->address > addr)
+	//		break;
 		if (addr < (map->address + map->size)) {
 			if (off)
 				*off = addr - map->address;
+//printf("YES!\n");
 			return map;
 		}
 	}
 
+//printf("B\n");
 	return NULL;
 }
 
